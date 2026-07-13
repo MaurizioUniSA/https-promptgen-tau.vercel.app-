@@ -1,191 +1,63 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prompt Generator</title>
-    <style>
-        :root {
-            --bg-color: #f8f9fa;
-            --card-bg: #ffffff;
-            --text-main: #212529;
-            --border-color: #dee2e6;
-            --primary: #0d6efd;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
-        }
-        .container {
-            max-width: 650px;
-            width: 100%;
-            background: var(--card-bg);
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            border: 1px solid var(--border-color);
-        }
-        h1 { margin-top: 0; font-size: 1.5rem; font-weight: 600; margin-bottom: 24px; }
-        .section-block { margin-bottom: 20px; }
-        label { display: block; font-weight: 500; margin-bottom: 6px; font-size: 0.9rem; }
-        textarea, input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 0.95rem;
-            box-sizing: border-box;
-            resize: vertical;
-        }
-        button {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 6px;
-            font-weight: 500;
-            cursor: pointer;
-            width: 100%;
-            font-size: 0.95rem;
-            transition: background 0.2s;
-        }
-        button:hover { background-color: #0b5ed7; }
-        .output-box {
-            margin-top: 24px;
-            padding: 15px;
-            background: #f1f3f5;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
-            white-space: pre-wrap;
-            min-height: 60px;
-            font-size: 0.95rem;
-        }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <h1>AI Prompt Generator</h1>
-    
-    <!-- App Form Sections -->
-    <div class="section-block">
-        <label for="role-input">Role / Persona</label>
-        <input type="text" id="role-input" placeholder="e.g., Expert Data Scientist, Senior Copywriter...">
-    </div>
-
-    <div class="section-block">
-        <label for="task-input">Core Task / Context</label>
-        <textarea id="task-input" rows="3" placeholder="Describe what you want the AI to achieve..."></textarea>
-    </div>
-
-    <div class="section-block">
-        <label for="constraints-input">Constraints & Formatting</label>
-        <textarea id="constraints-input" rows="2" placeholder="e.g., Bullet points only, tone guidelines, word limits..."></textarea>
-    </div>
-
-    <button id="generate-btn">Generate Prompt</button>
-
-    <!-- App Output Container -->
-    <div class="output-box" id="final-prompt-output">Your compiled prompt will appear here...</div>
-</div>
-
-<!-- ======================================================= -->
-<!--                  ANALYTICS ENGINE BLOCK                  -->
-<!-- ======================================================= -->
 <script>
-    // 1. BACKEND LINK CONFIGURATION
-    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwDnXK7o_3gGcBblpwjQwVRKhsMGD0lMiq-jUoghuM9RaN9Nr8CB25SnnUEB-1Rhr-C/exec';
+// Unique session ID for the visitor
+const userId = "user_" + Math.random().toString(36).substring(2, 9);
+let pageViews = 1;
+let startTime = Date.now();
+let actionCount = 0;
+
+// Function to securely send data to your Google Sheet instantly
+function sendAnalytics(isClosing = false) {
+    actionCount++;
+    const timeSpent = Math.round((Date.now() - startTime) / 1000);
     
-    // 2. CLIENT-SIDE PERSISTENCE (Tracks sessions uniquely without logging users in)
-    const sessionData = {
-        userId: localStorage.getItem('analytics_user_id') || 'user_' + Math.random().toString(36).substr(2, 9),
-        pageViews: parseInt(sessionStorage.getItem('page_views') || 0) + 1,
-        clicks: [],
-        startTime: Date.now()
+    const roleInput = document.getElementById('role-input')?.value || "";
+    const taskInput = document.getElementById('task-input')?.value || "";
+    const constraintsInput = document.getElementById('constraints-input')?.value || "";
+    const generatedPrompt = document.getElementById('output-box')?.innerText || document.getElementById('output-box')?.value || "";
+    
+    const payload = {
+        userId: userId,
+        pageViews: pageViews,
+        timeOnPage: timeSpent,
+        actions: `Generations: ${actionCount}`,
+        device: navigator.userAgentData?.mobile ? "Mobile" : "Desktop",
+        userInputs: `Role: ${roleInput} | Task: ${taskInput} | Constraints: ${constraintsInput}`,
+        generatedPrompt: generatedPrompt,
+        referrer: document.referrer || "Direct Link",
+        screenSize: `${window.screen.width}x${window.screen.height}`,
+        language: navigator.language || "Unknown",
+        promptWordCount: generatedPrompt ? generatedPrompt.split(/\s+/).filter(Boolean).length : 0
     };
-    
-    localStorage.setItem('analytics_user_id', sessionData.userId);
-    sessionStorage.setItem('page_views', sessionData.pageViews);
 
-    // 3. FRONTEND LOGIC: App Functionality & Internal Click Logging
-    const generateBtn = document.getElementById('generate-btn');
-    const roleInput = document.getElementById('role-input');
-    const taskInput = document.getElementById('task-input');
-    const constraintsInput = document.getElementById('constraints-input');
-    const promptOutput = document.getElementById('final-prompt-output');
+    // Use fetch for instant delivery while they are on the page
+    fetch("https://script.google.com/macros/s/AKfycbwDnXK7o_3gGcBblpwjQwVRKhsMGD0lMiq-jUoghuM9RaN9Nr8CB25SnnUEB-1Rhr-C/exec", {
+        method: "POST",
+        mode: "no-cors",
+        cache: "no-cache",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    }).catch(err => console.log("Analytics backup log:", err));
+}
 
-    generateBtn.addEventListener('click', () => {
-        const role = roleInput.value.trim();
-        const task = taskInput.value.trim();
-        const constraints = constraintsInput.value.trim();
+// Hook into your existing Generate button
+document.addEventListener("DOMContentLoaded", () => {
+    // Looks for your generate button (make sure your button ID matches 'generate-btn')
+    const generateBtn = document.getElementById('generate-btn') || document.querySelector('button');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', () => {
+            // Give the app a split second to generate the text first, then send it to Google
+            setTimeout(sendAnalytics, 500);
+        });
+    }
+});
 
-        if(!task) {
-            promptOutput.innerText = "Please provide at least a core task to build your prompt.";
-            return;
+// Keep backup for when they close the tab
+window.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+        const timeSpent = Math.round((Date.now() - startTime) / 1000);
+        if (timeSpent > 5) { // Only log exit if they stayed longer than 5 seconds
+            sendAnalytics(true);
         }
-
-        let compiledPrompt = `Act as a ${role || 'helpful assistant'}.\n\n`;
-        compiledPrompt += `Your task is to: ${task}\n\n`;
-        if(constraints) compiledPrompt += `Adhere to these rules: ${constraints}`;
-
-        promptOutput.innerText = compiledPrompt;
-        
-        sessionData.clicks.push("Generated Prompt Button");
-    });
-
-    // 4. BEACON PIPELINE (Bundles and pushes data to Google Sheets when user leaves)
-    window.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') {
-            
-            // Map input values dynamically across your UI sections
-            const inputs = Array.from(document.querySelectorAll('textarea, input[type="text"]'));
-            const collectedInputs = inputs.map(input => {
-                const label = input.previousElementSibling?.innerText || input.placeholder || input.id;
-                return `${label}: ${input.value}`;
-            }).join(' | ');
-
-            // Read live text from output block if it was populated
-            const rawOutput = promptOutput.innerText;
-            const finalPromptText = (rawOutput && !rawOutput.includes("Your compiled prompt")) ? rawOutput : "";
-            
-            // Derive metric dimensions
-            const wordCount = finalPromptText ? finalPromptText.trim().split(/\s+/).length : 0;
-
-            // Compile the 12 columns payload matching the sheet precisely
-            const payload = {
-                userId: sessionData.userId,
-                pageViews: sessionData.pageViews,
-                timeOnPage: Math.round((Date.now() - sessionData.startTime) / 1000),
-                actions: sessionData.clicks.join(', '),
-                device: navigator.userAgent.split(' ')[0],
-                userInputs: collectedInputs,
-                generatedPrompt: finalPromptText,
-                referrer: document.referrer || "Direct Link",
-                screenSize: `${window.screen.width}x${window.screen.height}`,
-                language: navigator.language || navigator.userLanguage,
-                promptWordCount: wordCount
-            };
-
-            // Transmit payload instantly using sendBeacon (reliable on page-close)
-            if (navigator.sendBeacon) {
-                navigator.sendBeacon(WEB_APP_URL, JSON.stringify(payload));
-            } else {
-                fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-            }
-        }
-    });
+    }
+});
 </script>
-
-</body>
-</html>
